@@ -8,11 +8,11 @@ output: html_document
 ### Analysis alpha-diversity with rarefied dataset
 Load data
 ```{r}
-my_asv_table <- read.table("~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE) #add manually in textfile a 0 in front of single numbers of samples 1, 2, 3, 4 ,5 ...
+my_asv_table <- read.table("~/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE) #add manually in textfile a 0 in front of single numbers of samples 1, 2, 3, 4 ,5 ...
 head(my_asv_table)
 dim(my_asv_table)
 
-metadat <- read.table("~/Philemon_ITS/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") 
+metadat <- read.table("~/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") 
 View(metadat)
 ```
 
@@ -210,7 +210,7 @@ post_hoc_compartment
 ###ß-diversity
 Read data
 ```{r}
-ASVs <- read.table("~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE) 
+ASVs <- read.table("~/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE) 
 head(ASVs)
 dim(ASVs)
 ```
@@ -226,7 +226,7 @@ View(ASVs_rela) #%relative otu table to 100%
 PERMANOVA on relative abundance 
 ```{r}
 ASVs_rela_dist <-vegdist(ASVs_rela, method="bray") 
-metadat <- read.table("~/Philemon_ITS/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") 
+metadat <- read.table("~/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") 
 View(metadat)
 perm.ado<-adonis2(formula=ASVs_rela_dist~Plant.condition*Compartment*Soil.origin, data=metadat, method="Bray", permutation=9999) 
 perm.ado
