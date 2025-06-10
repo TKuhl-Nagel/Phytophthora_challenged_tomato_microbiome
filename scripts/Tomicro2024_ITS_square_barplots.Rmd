@@ -1,0 +1,218 @@
+---
+title: "Tomicro2024_ITS_square_barplots"
+author: "Theresa Kuhl-Nagel"
+date: "2024-06-12"
+output: html_document
+---
+
+Following tutorial: 
+https://riffomonas.org/code_club/
+https://riffomonas.org/code_club/2021-05-21-grouped-bar-charts
+https://riffomonas.org/code_club/2021-05-26-summary-plots
+
+to change the labels at x-axis see: https://riffomonas.org/code_club/2021-06-01-working-with-text 
+```{r}
+library(tidyverse)
+library(readxl)
+library(stringr)
+library(dplyr)
+library(ggtext) # we can change fonts in plots
+library(RColorBrewer)
+library(ggplot2)
+```
+
+Load clean datasets
+```{r}
+metadata <- read.table("~/Philemon_ITS/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") %>%
+  select(ID, Compartment, Soil.origin, CompSoil, CompSoilDis) 
+
+View(metadata)
+
+#rarefied dataset (according to Schloss 2024)
+ASV_counts <- read.table("~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE)#this file was cleaned for mitos, chloros and all taxa which are not fungi, also it is a rarefied dataset
+dim(ASV_counts)
+View(ASV_counts)
+
+#change column name
+    ASV_counts <- as.data.frame(ASV_counts)
+    ASV_counts <- rownames_to_column(ASV_counts, var = "ID")
+    View(ASV_counts)
+#continue to long format
+    ASV_counts <- ASV_counts %>%
+    pivot_longer(-ID, names_to="ASV", values_to = "count")
+    View(ASV_counts)
+    
+    
+tax_ASV <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", header=TRUE, sep="\t") 
+#rename column
+    colnames(tax_ASV)[which(names(tax_ASV) == "ASVid")] <- "ASV"
+
+View(tax_ASV)
+dim(tax_ASV)
+```
+
+Combine in one dataset
+```{r}
+ASV_relabu <- inner_join(metadata, ASV_counts, by="ID") %>%
+  inner_join(., tax_ASV, by="ASV") %>%
+  group_by(ID) %>%
+  mutate(rel_abund = count / sum(count)) %>%
+  ungroup() %>%
+  select(-count) 
+
+ASV_relabu
+dim(ASV_relabu)
+
+
+#check if all values add up to 1
+ASV_relabu %>%
+  group_by(ID) %>%
+  summarize(total = sum(rel_abund))
+
+#check if everything apart from fungi is out
+unique(ASV_relabu$kingdom)
+```
+
+Long format
+```{r}
+ASV_relabu_long <- ASV_relabu %>%
+  pivot_longer(c("kingdom", "phylum", "class", "order", "family", "genus", "species", "ASV"),
+               names_to="level",
+               values_to="taxon")
+
+ASV_relabu_long
+
+```
+
+Square barplot with standard deviation
+```{r}
+taxon_ASV_relabu <- ASV_relabu_long %>%
+  filter(level=="phylum") %>% #change here taxon level
+  group_by(Soil.origin, Compartment, ID, taxon) %>%
+  summarize(rel_abund = sum(rel_abund), .groups="drop") %>%
+  group_by(Soil.origin, Compartment, taxon) %>%
+  summarize(mean_rel_abund = 100*mean(rel_abund),  sd = 100 * sd(rel_abund), .groups = "drop") %>%   #100* makes relabu in %, We calculate the standard deviation of the mean sd(rel_abund) after calculating the mean relative abundance
+  mutate(taxon = str_replace(taxon, "^(\\S*)$", "*\\1*"))
+
+#check highest abundances  (check percentage you want as limit)
+taxon_ASV_relabu %>%
+  group_by(taxon)%>%
+  summarize(max = max(mean_rel_abund))%>%
+  arrange(desc(max))
+  
+#pool low abundant phyla 
+taxon_pool <- taxon_ASV_relabu %>%
+  group_by(taxon)%>%
+  summarize(pool = max(mean_rel_abund)<9, #add here percentage you want as limit
+            mean=mean(mean_rel_abund),
+            .groups= "drop")
+
+taxon_combine <- inner_join(taxon_ASV_relabu, taxon_pool, by="taxon")%>%
+  mutate(taxon=if_else(pool, "Other", taxon))%>%
+  group_by(Soil.origin, Compartment, taxon)%>%
+  summarize(mean_rel_abund = sum(mean_rel_abund),
+            sd = sum(sd),
+            mean = min(mean),
+            .groups="drop")%>%
+  mutate(taxon=factor(taxon),
+         taxon=fct_reorder(taxon, mean, .desc=FALSE))
+taxon_combine
+
+plot <- taxon_combine %>%
+  ggplot(aes(fill=Soil.origin, x=mean_rel_abund, y=taxon)) +
+  geom_errorbar(aes(xmin=mean_rel_abund, xmax=mean_rel_abund + sd),
+                position = position_dodge2(width = 0.8, reverse = TRUE, padding = 0),
+                width = 0.8,
+                size = 0.2) +
+  geom_col(position = position_dodge2(width = 0.8, reverse = TRUE, padding = 0), width=0.8) +
+  scale_fill_manual(name=NULL, breaks=c("Soil A", "Soil B"),
+                   labels=c("Soil A", "Soil B"), 
+                   values=c("#d03792", "#7fa718")) + # magenta #d03792, green #7fa718
+   scale_x_continuous(expand=c(0, 0)) +
+  labs(y=NULL,
+       x="Mean Relative Abundance (%)") +
+  facet_grid(~Compartment, scale = "free_y", switch = "y")+
+  theme_classic() +
+  theme(axis.text.y = element_markdown(),
+        legend.text = element_markdown(),
+        legend.key.size = unit(10, "pt"),
+        legend.position = c(0.95, 0.6),
+        panel.grid.major.x = element_line(color="lightgray", size = 0.25),
+        panel.spacing = unit(1, "lines"))
+
+plot
+
+
+#ggsave("Philemon.tiff", width=5, height=8)
+```
+
+ASV level without italics
+```{r}
+taxon_ASV_relabu <- ASV_relabu_long %>%
+  filter(level=="ASV") %>%
+  group_by(Soil.origin, Compartment, ID, taxon) %>%
+  summarize(rel_abund = sum(rel_abund), .groups="drop") %>%
+  group_by(Soil.origin, Compartment, taxon) %>%
+  summarize(mean_rel_abund = 100*mean(rel_abund),  sd = 100 * sd(rel_abund), .groups = "drop") 
+
+#check highest abundances  (check percentage you want as limit)
+taxon_ASV_relabu %>%
+  group_by(taxon)%>%
+  summarize(max = max(mean_rel_abund))%>%
+  arrange(desc(max))
+  
+#pool low abundant phyla 
+taxon_pool <- taxon_ASV_relabu %>%
+  group_by(taxon)%>%
+  summarize(pool = max(mean_rel_abund)<5.8, #add here percentage you want as limit
+            mean=mean(mean_rel_abund),
+            .groups= "drop")
+
+taxon_combine <- inner_join(taxon_ASV_relabu, taxon_pool, by="taxon")%>%
+  mutate(taxon=if_else(pool, "Other", taxon))%>%
+  group_by(Soil.origin, Compartment, taxon)%>%
+  summarize(mean_rel_abund = sum(mean_rel_abund),
+            sd = sum(sd),
+            mean = min(mean),
+            .groups="drop")%>%
+  mutate(taxon=factor(taxon),
+         taxon=fct_reorder(taxon, mean, .desc=FALSE))
+
+taxon_combine
+
+plot <- taxon_combine %>%
+  ggplot(aes(fill=Soil.origin, x=mean_rel_abund, y=taxon)) +
+  geom_errorbar(aes(xmin=mean_rel_abund, xmax=mean_rel_abund + sd),
+                position = position_dodge2(width = 0.8, reverse = TRUE, padding = 0),
+                width = 0.8,
+                size = 0.2) +
+  geom_col(position = position_dodge2(width = 0.8, reverse = TRUE, padding = 0), width=0.8) +
+  scale_fill_manual(name=NULL, breaks=c("Soil A", "Soil B"),
+                   labels=c("Soil A", "Soil B"), 
+                   values=c("#d03792", "#7fa718")) + # magenta #d03792, green #7fa718
+   scale_x_continuous(expand=c(0, 0)) +
+  labs(y=NULL,
+       x="Mean Relative Abundance (%)") +
+  facet_grid(~Compartment, scale = "free_y", switch = "y")+
+  theme_classic() +
+  theme(axis.text.y = element_text(),
+        legend.text = element_markdown(),
+        legend.key.size = unit(10, "pt"),
+        legend.position = c(0.95, 0.6),
+        panel.grid.major.x = element_line(color="lightgray", size = 0.25),
+        panel.spacing = unit(1, "lines"))
+
+plot
+
+
+#ggsave("Philemon.tiff", width=5, height=8)
+```
+
+
+
+
+
+
+
+
+

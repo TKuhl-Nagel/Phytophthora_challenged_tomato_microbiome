@@ -1,0 +1,220 @@
+---
+title: "ITS_dada2_Philemon"
+author: "Theresa Kuhl-Nagel"
+date: "2024-01-02"
+output: html_document
+---
+
+Load packages
+```{r}
+#BiocManager::install("dada2")
+library(dada2); packageVersion("dada2")
+library(ShortRead); packageVersion("ShortRead")
+library(ggplot2); packageVersion("ggplot2")
+```
+#ITS Workflow Dada2
+################################ updated code according to ITS Workflow tutorial (version 1.8) https://benjjneb.github.io/dada2/ITS_workflow.html accessed 25.1.2024
+Load data
+
+```{r}
+path <- "~/Philemon_ITS/Primer_removed_F"
+fnFs <- list.files(path)
+
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
+fnFs
+
+path2 <- "~/Philemon_ITS/Primer_removed_R"
+fnRs <- list.files(path2)
+
+fnRs <- sort(list.files(path2, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
+fnRs
+
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+```
+
+
+Identify primers
+```{r}
+FWD <- "CTTGGTCATTTAGAGGAAGTAA"  
+REV <- "GCTGCGTTCTTCATCGATGC" 
+```
+
+```{r}
+allOrients <- function(primer) {
+    # Create all orientations of the input sequence
+    require(Biostrings)
+    dna <- DNAString(primer)  # The Biostrings works w/ DNAString objects rather than character vectors
+    orients <- c(Forward = dna, Complement = Biostrings::complement(dna), Reverse = Biostrings::reverse(dna),
+        RevComp = Biostrings::reverseComplement(dna))
+    return(sapply(orients, toString))  # Convert back to character vector
+}
+FWD.orients <- allOrients(FWD)
+REV.orients <- allOrients(REV)
+FWD.orients
+REV.orients
+```
+```{r}
+# Place filtered files in filtered/ subdirectory
+path3 <- "~/Philemon_ITS"
+fnFs.filtN <- file.path(path3, "filtNDada2F", paste0(sample.names, "_F_filt.fastq.gz"))
+fnRs.filtN <- file.path(path3, "filtNDada2R", paste0(sample.names, "_R_filt.fastq.gz"))
+names(fnFs.filtN) <- sample.names
+names(fnRs.filtN) <- sample.names
+filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN, maxN = 0, multithread = TRUE)
+```
+
+```{r}
+primerHits <- function(primer, fn) {
+    # Counts number of reads in which the primer is found
+    nhits <- vcountPattern(primer, sread(readFastq(fn)), fixed = FALSE)
+    return(sum(nhits > 0))
+}
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.filtN[[1]]), FWD.ReverseReads = sapply(FWD.orients,
+    primerHits, fn = fnRs.filtN[[1]]), REV.ForwardReads = sapply(REV.orients, primerHits,
+    fn = fnFs.filtN[[1]]), REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.filtN[[1]]))
+```
+
+--> run again cutadapt at usegalaxy.eu to remove also primers from backwards orientation
+Trim FWD and the reverse-complement of REV off of R1 (forward reads)
+Trim REV and the reverse-complement of FWD off of R2 (reverse reads)
+
+Load updated data
+```{r}
+path <- "~/Philemon_ITS/Primer_removed_Dada2_F"
+fnFs <- list.files(path)
+
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
+fnFs
+
+path2 <- "~/Philemon_ITS/Primer_removed_Dada2_R"
+fnRs <- list.files(path2)
+
+fnRs <- sort(list.files(path2, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
+fnRs
+
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+```
+
+```{r}
+# Place filtered files in filtered/ subdirectory
+path3 <- "~/Philemon_ITS"
+fnFs.filtN <- file.path(path3, "filtNDada2F", paste0(sample.names, "_F_filt.fastq.gz"))
+fnRs.filtN <- file.path(path3, "filtNDada2R", paste0(sample.names, "_R_filt.fastq.gz"))
+names(fnFs.filtN) <- sample.names
+names(fnRs.filtN) <- sample.names
+filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN, maxN = 0, multithread = TRUE)
+```
+
+```{r}
+primerHits <- function(primer, fn) {
+    # Counts number of reads in which the primer is found
+    nhits <- vcountPattern(primer, sread(readFastq(fn)), fixed = FALSE)
+    return(sum(nhits > 0))
+}
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.filtN[[1]]), FWD.ReverseReads = sapply(FWD.orients,
+    primerHits, fn = fnRs.filtN[[1]]), REV.ForwardReads = sapply(REV.orients, primerHits,
+    fn = fnFs.filtN[[1]]), REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.filtN[[1]]))
+```
+check Quality profile
+```{r}
+fnFs.filtN
+plotQualityProfile(fnFs.filtN[1:4])
+```
+
+```{r}
+plotQualityProfile(fnRs.filtN[1:4])
+```
+We see a drop at 200 bp in F and R, which is a good sign of consistency. Unlike in the 16S Tutorial Workflow, we will not be truncating the reads to a fixed length, as the ITS region has significant biological length variation that is lost by such an appraoch.
+
+#Filter and trim
+```{r}
+filtFs <- file.path(path3, "filteredDada2", basename(fnFs.filtN))
+filtRs <- file.path(path3, "filteredDada2", basename(fnRs.filtN))
+```
+
+```{r}
+out <- filterAndTrim(fnFs.filtN, filtFs, fnRs.filtN, filtRs, maxN = 0, maxEE = c(2, 2), truncQ = 2,
+    minLen = 50, rm.phix = TRUE, compress = TRUE, multithread = TRUE)  
+head(out)
+```
+
+```{r}
+errF <- learnErrors(filtFs, multithread = TRUE)
+```
+
+```{r}
+errR <- learnErrors(filtRs, multithread = TRUE)
+```
+
+```{r}
+plotErrors(errF, nominalQ = TRUE)
+```
+
+```{r}
+plotErrors(errR, nominalQ = TRUE)
+```
+--> Error rates are ok. No zigzags (be aware when using data sequenced with new technology NovaSEq 6000)
+
+Dereplicate
+```{r}
+dadaFs <- dada(filtFs, err = errF, multithread = TRUE)
+dadaRs <- dada(filtRs, err = errR, multithread = TRUE)
+
+```
+
+Merge read pairs
+```{r}
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+```
+Make sequence table
+```{r}
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+```
+
+Remove chimeras
+```{r}
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+```
+
+Sequence length distribution
+```{r}
+table(nchar(getSequences(seqtab.nochim)))
+```
+
+Track reads through pipeline
+```{r}
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN),
+    rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace
+# sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sample.names
+track
+write.table(track, "Quality_Ctr_Dada2.txt")
+```
+
+
+Create new ASV names (optional; better use continous numbers: ASV1-AVSn)
+```{r}
+seqs <- Biostrings::DNAStringSet(getSequences(seqtab.nochim))
+library("openssl")
+asv_new <- openssl::md5(getSequences(seqtab.nochim))
+
+#Add to files
+colnames(seqtab.nochim) <- asv_new
+names(seqs) <- asv_new
+```
+
+Export table
+```{r}
+seqtab.nochim.t <- t(seqtab.nochim) #samples=columns; species=rows
+head(seqtab.nochim.t)
+write.csv(seqtab.nochim.t, "ASVtable_ITS_Philemon_Dada2.csv")
+
+head(seqs)
+write.csv(seqs, "ASVsequences_ITS_Philemon_Dada2.csv")
+
+```
+--> run with BLAST and UNITE DB on galaxy-server (JKI)

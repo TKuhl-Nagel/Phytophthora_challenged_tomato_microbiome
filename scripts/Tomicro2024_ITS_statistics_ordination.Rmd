@@ -1,0 +1,273 @@
+---
+title: "Tomicro2024_ITS_statistics_ordination"
+author: "Theresa Kuhl-Nagel"
+date: "2024-06-12"
+output: html_document
+---
+
+### Analysis alpha-diversity with rarefied dataset
+Load data
+```{r}
+my_asv_table <- read.table("~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE) #add manually in textfile a 0 in front of single numbers of samples 1, 2, 3, 4 ,5 ...
+head(my_asv_table)
+dim(my_asv_table)
+
+metadat <- read.table("~/Philemon_ITS/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") 
+View(metadat)
+```
+
+Richness
+```{r}
+#define function for richness
+Species.richness <- function(x)
+{
+  # Count only the OTUs that are present >0.5 normalized counts (normalization produces real values for counts)
+  count=sum(x[x>0.5]^0)
+  return(count)
+}
+
+alpha_divs <- metadat
+alpha_divs$richness <-apply(my_asv_table,1,Species.richness)
+View(alpha_divs)
+
+ggplot(data=alpha_divs, aes(y=richness, x=Soil.origin, col = Plant.condition))+ geom_boxplot() + facet_grid(~Compartment) + stat_compare_means(method = "kruskal.test", label = "p.signif")
+```
+
+Shannon index
+Shannon or Shannon–Weaver (or Shannon–Wiener) index is defined as H = -sum p_i log(b) p_i, where p_i is the proportional abundance of species i and b is the base of the logarithm. It is most popular to use natural logarithms, but some argue for base b = 2 (which makes sense, but no real difference).
+```{r}
+alpha_divs$shannon <-diversity(my_asv_table, index = "shannon", base = exp(1), MARGIN = 1)
+View(alpha_divs)
+
+ggplot(data=alpha_divs, aes(y=shannon, x=Soil.origin, col = Plant.condition))+ geom_boxplot() + facet_grid(~Compartment) + stat_compare_means(method = "kruskal.test", label = "p.signif")
+```
+
+Evenness
+```{r}
+diversity <- diversity(my_asv_table) #default=shannon
+speciesrichness <-specnumber(my_asv_table)
+alpha_divs$evenness<- diversity/log(speciesrichness)
+
+ggplot(data=alpha_divs, aes(y=evenness, x=Soil.origin, col = Plant.condition))+ geom_boxplot() + facet_grid(~Compartment)+ stat_compare_means(method = "kruskal.test", label = "p.signif")
+```
+
+Simpson index
+Both variants of Simpson's index are based on D = sum p_i^2. Choice simpson returns 1-D and invsimpson returns 1/D.
+```{r}
+alpha_divs$simpson <- diversity(my_asv_table, index = "simpson", base = exp(1), MARGIN = 1)
+
+ggplot(data=alpha_divs, aes(y=simpson, x=Soil.origin, col = Plant.condition))+ geom_boxplot() + facet_grid(~Compartment)+ stat_compare_means(method = "kruskal.test", label = "p.signif")
+```
+
+#ANOVA/statistics on mean of diversity indices
+Behr et al. 2023: Significant differences in a-diversity (ASV Richness, Simpson, Shannon Index, and Evenness) were estimated with two-way ANOVA tests. If the data failed to fulfill the normality criteria based on the Shapiro test, the non-parametric aligned-rank ANOVA was performed (“ARTool” package, v.0.11.1, Kay et al., 2021).
+
+3-way-ANOVA Richness 
+```{r}
+library(car)
+library(rcompanion)
+
+model_1 <- aov(richness ~ Soil.origin*Plant.condition*Compartment, alpha_divs)
+anova(model_1) 
+shapiro.test(residuals(model_1)) # not significant
+qqnorm(residuals(model_1))
+leveneTest(model_1) # significant
+
+# data transformation
+Index_B =
+  transformTukey(alpha_divs$richness,
+                 plotit=FALSE)
+data_index_B <- cbind(alpha_divs, Index_B)
+
+#neue ANOVA
+data_aov_B_index <- aov(Index_B ~Soil.origin*Plant.condition*Compartment, data_index_B)
+anova(data_aov_B_index)
+shapiro.test(residuals(data_aov_B_index)) # significant
+qqnorm(residuals(data_aov_B_index))
+leveneTest(data_aov_B_index) # significant
+# -> Werte jetzt noch schlechter
+
+#### Tukey HSD ####
+library(agricolae)
+HSD.Test_1 <- HSD.test(model_1,c("Soil.origin", "Plant.condition", "Compartment"), group=TRUE,console=TRUE,
+                                main="Posthoc: Tukey")
+```
+--> Because all three way ANOVAs failed the normality requirements and transformation did not help I analyzed the data using ARTool a non-parametric alternative to ANOVA
+https://depts.washington.edu/acelab/proj/art/ 
+
+```{r}
+#non-parametric alternative to 3-way-ANOVA
+install.packages("ARTool")
+library(ARTool)
+
+#change parameter to factors
+alpha_divs$Soil.origin <- factor(alpha_divs$Soil.origin)
+alpha_divs$Plant.condition <- factor(alpha_divs$Plant.condition)
+alpha_divs$Compartment <- factor(alpha_divs$Compartment)
+str(alpha_divs)
+```
+
+ART Model Richness
+```{r}
+#fit ARTool model
+model <- art(richness ~ Soil.origin*Plant.condition*Compartment, data=alpha_divs)
+
+#run ANOVA
+anova_result <- anova(model)
+anova_result
+
+# Perform post-hoc tests for interactions
+post_hoc_interaction <- art.con(model, "Soil.origin:Plant.condition:Compartment")
+post_hoc_df <- summary(post_hoc_interaction)
+filtered_results <- subset(post_hoc_df, p.value < 0.05)
+filtered_results 
+write.table(filtered_results, file="~/Philemon_ITS/alpha_divs_ARTool/Alpha_div_ART_richness.txt", sep = "\t")
+
+# Perform post-hoc tests for main effects (maybe misleading due to interactions)
+post_hoc_soil <- art.con(model, "Soil.origin")
+post_hoc_soil
+post_hoc_plant <- art.con(model, "Plant.condition")
+post_hoc_plant 
+post_hoc_compartment <- art.con(model, "Compartment")
+post_hoc_compartment
+```
+
+ART Model Shannon
+```{r}
+#fit ARTool model
+model <- art(shannon ~ Soil.origin*Plant.condition*Compartment, data=alpha_divs)
+
+#run ANOVA
+anova_result <- anova(model)
+anova_result
+
+# Perform post-hoc tests for interactions
+post_hoc_interaction <- art.con(model, "Soil.origin:Plant.condition:Compartment")
+post_hoc_df <- summary(post_hoc_interaction)
+filtered_results <- subset(post_hoc_df, p.value < 0.05)
+filtered_results 
+write.table(filtered_results, file="~/Philemon_ITS/alpha_divs_ARTool/Alpha_div_ART_shannon.txt", sep = "\t")
+
+# Perform post-hoc tests for main effects (maybe misleading due to interactions)
+post_hoc_soil <- art.con(model, "Soil.origin")
+post_hoc_soil
+post_hoc_plant <- art.con(model, "Plant.condition")
+post_hoc_plant 
+post_hoc_compartment <- art.con(model, "Compartment")
+post_hoc_compartment
+```
+
+ART Model Evenness
+```{r}
+#fit ARTool model
+model <- art(evenness ~ Soil.origin*Plant.condition*Compartment, data=alpha_divs)
+
+#run ANOVA
+anova_result <- anova(model)
+anova_result
+
+# Perform post-hoc tests for interactions
+post_hoc_interaction <- art.con(model, "Soil.origin:Plant.condition:Compartment")
+post_hoc_df <- summary(post_hoc_interaction)
+filtered_results <- subset(post_hoc_df, p.value < 0.05)
+filtered_results 
+write.table(filtered_results, file="~/Philemon_ITS/alpha_divs_ARTool/Alpha_div_ART_evenness.txt", sep = "\t")
+
+# Perform post-hoc tests for main effects (maybe misleading due to interactions)
+post_hoc_soil <- art.con(model, "Soil.origin")
+post_hoc_soil
+post_hoc_plant <- art.con(model, "Plant.condition")
+post_hoc_plant 
+post_hoc_compartment <- art.con(model, "Compartment")
+post_hoc_compartment
+```
+
+ART Model Simpson
+```{r}
+#fit ARTool model
+model <- art(simpson ~ Soil.origin*Plant.condition*Compartment, data=alpha_divs)
+
+#run ANOVA
+anova_result <- anova(model)
+anova_result
+
+# Perform post-hoc tests for interactions
+post_hoc_interaction <- art.con(model, "Soil.origin:Plant.condition:Compartment")
+post_hoc_df <- summary(post_hoc_interaction)
+filtered_results <- subset(post_hoc_df, p.value < 0.05)
+filtered_results 
+write.table(filtered_results, file="~/Philemon_ITS/alpha_divs_ARTool/Alpha_div_ART_simpson.txt", sep = "\t")
+
+# Perform post-hoc tests for main effects (maybe misleading due to interactions)
+post_hoc_soil <- art.con(model, "Soil.origin")
+post_hoc_soil
+post_hoc_plant <- art.con(model, "Plant.condition")
+post_hoc_plant 
+post_hoc_compartment <- art.con(model, "Compartment")
+post_hoc_compartment
+```
+
+###ß-diversity
+Read data
+```{r}
+ASVs <- read.table("~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE) 
+head(ASVs)
+dim(ASVs)
+```
+
+Calculate relative abundance
+```{r}
+View(ASVs) #samples in rows!
+rowsum_ASVs <- rowSums(ASVs)
+ASVs_rela <- ASVs/rowsum_ASVs*100
+View(ASVs_rela) #%relative otu table to 100%
+```
+
+PERMANOVA on relative abundance 
+```{r}
+ASVs_rela_dist <-vegdist(ASVs_rela, method="bray") 
+metadat <- read.table("~/Philemon_ITS/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") 
+View(metadat)
+perm.ado<-adonis2(formula=ASVs_rela_dist~Plant.condition*Compartment*Soil.origin, data=metadat, method="Bray", permutation=9999) 
+perm.ado
+```
+
+```{r}
+# Stress calculation
+NMDS_ASVs_rela_dist <- metaMDS(ASVs_rela_dist, distance = "bray", k=2,try= 20, trymax= 100, trace = TRUE) 
+NMDS_ASVs_rela_dist
+#stress = 0.1555342   -> good
+```
+
+```{r}
+plot(NMDS_ASVs_rela_dist,  type = "n", display = c("sites"), choices = c(1, 2) ) #xlim = c(-1, 1), ylim = c(-0.5,0.5), bty='L'
+
+##label of replicates according to DiControl color scheme
+#Rhizosphere soilA=Blue (#146eb4); Rhizosphere soilB = Orange (#ff9900), Phyllosphere soilA= Green (#18D41B),Phyllosphere soilB=Yellow (#D4B518), Endosphere soilA=Pink (#D418B5),Endosphere soilB=Red (#971C1C)
+points(NMDS_ASVs_rela_dist, display = "sites", pch = c(21, 24), bg=c("#146eb4","#146eb4","#146eb4","#146eb4","#146eb4","#146eb4","#146eb4","#146eb4","#ff9900","#ff9900","#ff9900","#ff9900","#ff9900","#ff9900","#ff9900","#ff9900","#18D41B","#18D41B","#18D41B","#18D41B","#18D41B","#18D41B","#18D41B","#18D41B","#D4B518","#D4B518","#D4B518","#D4B518","#D4B518","#D4B518","#D4B518","#D4B518","#D418B5","#D418B5","#D418B5","#D418B5","#D418B5","#D418B5","#D418B5","#D418B5","#971C1C","#971C1C","#971C1C","#971C1C","#971C1C","#971C1C","#971C1C","#971C1C" ))
+
+col_sites<-c("#146eb4","#ff9900","#18D41B","#D4B518","#D418B5","#971C1C")
+leg.txt<-c("Rhizosphere soilA","Rhizosphere soilB","Phyllosphere soilA","Phyllosphere soilB","Endosphere soilA","Endosphere soilB")
+legend("bottomleft",inset=c(0,0), xpd=TRUE, text.font=1.5, legend=leg.txt, col="black", pt.bg = col_sites, cex=0.7, pch= c(21, 21), bty = "n")
+leg.txt2 <- c("Healthy","Diseased")
+legend("topleft", inset=c(0,0), xpd=TRUE, text.font=1.5, legend=leg.txt2, pch= c(21, 24), cex=0.7, bty = "n")
+#ordiellipse(NMDS_tCOG_rel, groups = metadat$BENEFICIALS, draw = "polygon", lty = 1, alpha = 50, conf=0.95, border = c("#146eb4","#ff9900"))
+#ordiellipse(NMDS_tAC2_filt_rel, groups = metadat$TREATMENT, draw = "polygon", lty = 1, alpha = 50, conf=0.95)
+#ordipointlabel(NMDS_tAC2_filt_rel, "sites", add = TRUE, cex = (0.5))
+#ordipointlabel(NMDS_ASVs_rela_dist, "sites", add = TRUE, cex = (0.6))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

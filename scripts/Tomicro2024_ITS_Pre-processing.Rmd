@@ -1,0 +1,191 @@
+---
+title: "Tomicro2024_ITS_Pre-processing"
+author: "Theresa Kuhl-Nagel"
+date: "2024-06-12"
+output: html_document
+---
+
+```{r}
+library(ggplot2) #ggplot2: Fancy graphs
+library(ggpubr) #ggplot expansion for more fancy graphs
+library(readxl)
+library(readr)
+library(dplyr)# Data handling
+library(vegan)# Multivariate stat tool
+library(tidyr) # Data handling
+library(RColorBrewer) # Colours for fancy graphs
+library(tibble)# Data handling: rownames/columnanmes
+#install.packages("phyloseq")
+#library(phyloseq) # tool for 16S amplicon analysis
+library(lme4) # mixed effect models 
+library(forcats)
+library(tidyverse)
+library(tibble)
+
+```
+
+Read data
+```{r}
+ASVs <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_final.txt", header=T, sep="\t", dec=".", quote="", fill=FALSE) #add manually in textfile a 0 in front of single numbers 1, 2, 3, 4 ,5 ...
+head(ASVs)
+dim(ASVs)
+
+tax <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy.txt", header=TRUE, sep="\t") 
+head(tax)
+```
+
+```{r}
+#change rownames
+    ASVs$ASVid <- paste0("ASV",1:nrow(tax))
+    tax$ASVid <- paste0("ASV",1:nrow(tax))
+
+#separate taxonomy
+tax <- tax %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "^(.*\\|)", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "k__", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "p__", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "c__", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "o__", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "f__", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "g__", "")) %>%
+      mutate(taxonomy = str_replace_all(taxonomy, "s__", "")) %>%
+      separate(taxonomy,
+          into=c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep=";")
+
+#Combine with ASV table
+tax_ASV <- inner_join(ASVs, tax, by="ASVid")
+tax_ASV
+```
+
+Filter out mitos and chloros and kingdoms other than fungi
+```{r}
+tax_ASV_filt <- tax_ASV%>%
+  filter(kingdom == "Fungi")%>%
+  filter(., !str_detect(order, "Mitochondria|Chloroplast"))%>%
+  filter(., !str_detect(family, "Mitochondria|Chloroplast"))
+
+tax_ASV_filt
+dim(tax_ASV_filt)
+
+#check if everything apart from Fungi is removed
+unique(tax_ASV$kingdom)
+unique(tax_ASV_filt$kingdom)
+
+```
+
+```{r}
+#Remove taxonomy columns
+ASV_subset <- tax_ASV_filt[,c(1:49)]
+dim(ASV_subset)
+head(ASV_subset)
+
+#make first column rownames
+rownames(ASV_subset) <- ASV_subset[, 1]
+ASV_subset <- ASV_subset[, -1]
+
+#put in correct order
+ASV_subset <- ASV_subset[ , order(names(ASV_subset))]
+View(ASV_subset)
+```
+
+Exclude ASVs with less than 5 hits in whole dataset
+```{r}
+ASVs_clean <- ASV_subset[-which(rowSums(ASV_subset[sapply(ASV_subset, is.numeric)]) <= 5), ]
+dim(ASVs_clean)
+head(ASVs_clean)
+
+#Exclude ASVs with all 0 in one row
+ASVs_no0 <- ASVs_clean[rowSums(ASVs_clean[, -1] > 0) != 0, ]
+dim(ASVs_no0)
+head(ASVs_no0)
+View(ASVs_no0)
+
+#Export
+#write.table(ASVs_no0, "~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", dec = ".", sep = "\t")
+
+```
+
+Clean taxonomy dataset
+```{r}
+# Convert row names to a column 
+ASVs_no0_2 <- ASVs_no0 %>%
+  rownames_to_column(var = "rowname")
+head(ASVs_no0_2)
+dim(ASVs_no0_2)
+
+#change name of first column
+colnames(tax_ASV_filt)[1] <- "rowname"
+head(tax_ASV_filt)
+
+#select columns in taxonomy
+rowname <- tax_ASV_filt[, 1]
+last_col <- tax_ASV_filt[, (ncol(tax_ASV_filt)-6):ncol(tax_ASV_filt)]
+tax_new <- cbind(rowname, last_col)
+head(tax_new)
+dim(tax_new)
+
+#join datasets
+tax_clean <- inner_join(ASVs_no0_2, tax_new, by="rowname")
+dim(tax_clean)
+view(tax_clean)
+
+#select taxonomy columns
+ASVid <- tax_clean[, 1]
+last_cols <- tax_clean[, (ncol(tax_clean)-6):ncol(tax_clean)]
+tax_final <- cbind(ASVid, last_cols)
+dim(tax_final)
+head(tax_final)
+
+#Export
+#write.table(tax_final, "~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", dec = ".", sep = "\t")
+
+```
+
+#Create rarefied dataset
+Read data
+```{r}
+ASVs_no0_new <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", header=T, sep="\t", dec=".", fill=FALSE) 
+head(ASVs_no0_new)
+dim(ASVs_no0_new)
+```
+
+transpose data
+```{r}
+#transpose data
+tASVs<- t(ASVs_no0_new) # samples in rows
+dim(tASVs)
+head(tASVs)
+str(tASVs)
+View(tASVs)
+```
+
+Visualization of rarefaction curve 1000 random rarefactions
+```{r}
+library(vegan)
+myrare <- rarecurve(tASVs, step = 1000, cex=0.4)
+```
+
+get min rowSum 
+```{r}
+rowASVs <- rowSums(tASVs)
+min(rowASVs)
+```
+
+creating 1000x rarefied table for further analysis of alpha-diversity
+```{r}
+Have_you_Runned_previously_RF<-"NO"
+if (Have_you_Runned_previously_RF=="NO"){
+  list_of_1000_rarefaction=lapply(1:1000, function(i){ rrarefy(tASVs, 18628)})
+}
+
+mean.dat <- as.data.frame(apply(simplify2array(lapply(list_of_1000_rarefaction, as.matrix)),1:2,mean))
+view(mean.dat)
+dim(mean.dat)
+
+write.table(mean.dat, file="~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", sep = "\t")
+
+```
+To account for uneven sequencing depth, we repeatedly performed 1000 rarefactions to our dataset’s lowest number of sequences. Average ASV abundances were calculated based on the 1000 rarefactions.
+
+
+
