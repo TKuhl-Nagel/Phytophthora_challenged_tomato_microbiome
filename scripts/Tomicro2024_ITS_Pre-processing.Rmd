@@ -26,11 +26,11 @@ library(tibble)
 
 Read data
 ```{r}
-ASVs <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_final.txt", header=T, sep="\t", dec=".", quote="", fill=FALSE) #add manually in textfile a 0 in front of single numbers 1, 2, 3, 4 ,5 ...
+ASVs <- read.table("~/Megablast_Philemon_dada2_Unite_final.txt", header=T, sep="\t", dec=".", quote="", fill=FALSE) #add manually in textfile a 0 in front of single numbers 1, 2, 3, 4 ,5 ...
 head(ASVs)
 dim(ASVs)
 
-tax <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy.txt", header=TRUE, sep="\t") 
+tax <- read.table("~/Megablast_Philemon_dada2_Unite_taxonomy.txt", header=TRUE, sep="\t") 
 head(tax)
 ```
 
@@ -101,7 +101,7 @@ head(ASVs_no0)
 View(ASVs_no0)
 
 #Export
-#write.table(ASVs_no0, "~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", dec = ".", sep = "\t")
+#write.table(ASVs_no0, "~/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", dec = ".", sep = "\t")
 
 ```
 
@@ -137,14 +137,14 @@ dim(tax_final)
 head(tax_final)
 
 #Export
-#write.table(tax_final, "~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", dec = ".", sep = "\t")
+#write.table(tax_final, "~/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", dec = ".", sep = "\t")
 
 ```
 
 #Create rarefied dataset
 Read data
 ```{r}
-ASVs_no0_new <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", header=T, sep="\t", dec=".", fill=FALSE) 
+ASVs_no0_new <- read.table("~/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", header=T, sep="\t", dec=".", fill=FALSE) 
 head(ASVs_no0_new)
 dim(ASVs_no0_new)
 ```
@@ -182,7 +182,7 @@ mean.dat <- as.data.frame(apply(simplify2array(lapply(list_of_1000_rarefaction, 
 view(mean.dat)
 dim(mean.dat)
 
-write.table(mean.dat, file="~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", sep = "\t")
+write.table(mean.dat, file="~/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", sep = "\t")
 
 ```
 To account for uneven sequencing depth, we repeatedly performed 1000 rarefactions to our dataset’s lowest number of sequences. Average ASV abundances were calculated based on the 1000 rarefactions.
