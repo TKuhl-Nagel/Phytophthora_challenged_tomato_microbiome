@@ -17,13 +17,13 @@ library(ggplot2); packageVersion("ggplot2")
 Load data
 
 ```{r}
-path <- "~/Philemon_ITS/Primer_removed_F"
+path <- "~/Primer_removed_F"
 fnFs <- list.files(path)
 
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
 fnFs
 
-path2 <- "~/Philemon_ITS/Primer_removed_R"
+path2 <- "~/Primer_removed_R"
 fnRs <- list.files(path2)
 
 fnRs <- sort(list.files(path2, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
@@ -55,7 +55,7 @@ REV.orients
 ```
 ```{r}
 # Place filtered files in filtered/ subdirectory
-path3 <- "~/Philemon_ITS"
+path3 <- "~/"
 fnFs.filtN <- file.path(path3, "filtNDada2F", paste0(sample.names, "_F_filt.fastq.gz"))
 fnRs.filtN <- file.path(path3, "filtNDada2R", paste0(sample.names, "_R_filt.fastq.gz"))
 names(fnFs.filtN) <- sample.names
@@ -80,13 +80,13 @@ Trim REV and the reverse-complement of FWD off of R2 (reverse reads)
 
 Load updated data
 ```{r}
-path <- "~/Philemon_ITS/Primer_removed_Dada2_F"
+path <- "~/Primer_removed_Dada2_F"
 fnFs <- list.files(path)
 
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
 fnFs
 
-path2 <- "~/Philemon_ITS/Primer_removed_Dada2_R"
+path2 <- "~/Primer_removed_Dada2_R"
 fnRs <- list.files(path2)
 
 fnRs <- sort(list.files(path2, pattern="_R1_001.fastq.fastqsanger", full.names = TRUE))
@@ -97,7 +97,7 @@ sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
 
 ```{r}
 # Place filtered files in filtered/ subdirectory
-path3 <- "~/Philemon_ITS"
+path3 <- "~/"
 fnFs.filtN <- file.path(path3, "filtNDada2F", paste0(sample.names, "_F_filt.fastq.gz"))
 fnRs.filtN <- file.path(path3, "filtNDada2R", paste0(sample.names, "_R_filt.fastq.gz"))
 names(fnFs.filtN) <- sample.names
