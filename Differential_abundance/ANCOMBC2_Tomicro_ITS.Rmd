@@ -29,24 +29,24 @@ library(DT)
 load data
 ```{r}
 #Clean ASV dataset
-ASVs <- read.table("~/Data/Data_analysis_ANCOMBC2/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", header = T, sep="\t", dec=".", fill = FALSE)
+ASVs <- read.table("~/Megablast_Philemon_dada2_UNITE_no0_ASVNumbers2.txt", header = T, sep="\t", dec=".", fill = FALSE)
 head(ASVs)
 dim(ASVs)
 
 #Clean ASV dataset rarefied
-ASV2 <- read.table("~/Data/Data_analysis_ANCOMBC2/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header = T, sep="\t", dec=".", fill = FALSE)
+ASV2 <- read.table("~/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header = T, sep="\t", dec=".", fill = FALSE)
 head(ASV2)
 dim(ASV2)
 #switch rows and columns
 ASV2 <- t(ASV2)
 
 #Taxonomy file
-tax <- read.table("~/Data/Data_analysis_ANCOMBC2/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", header = T, sep="\t", dec=".", fill = FALSE)
+tax <- read.table("~/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", header = T, sep="\t", dec=".", fill = FALSE)
 head(tax)
 dim(tax)
 
 #metadata file
-metadata <- read.table("~/Data/Data_analysis_ANCOMBC2/Metadata_Philemon_ITS3.txt", header = T, sep="\t", dec=".", fill = FALSE)
+metadata <- read.table("~/Metadata_Philemon_ITS3.txt", header = T, sep="\t", dec=".", fill = FALSE)
 head(metadata)
 dim(metadata)
 ```
