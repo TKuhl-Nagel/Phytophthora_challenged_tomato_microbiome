@@ -1,0 +1,18 @@
+"contrast"	"estimate"	"SE"	"df"	"t.ratio"	"p.value"
+"2"	"Organic soil A,Diseased,leaves (phyllosphere) - Organic soil A,Diseased,soil (rhizosphere)"	-23.5	6.13505410643532	36	-3.83044706571534	0.0212975067663673
+"5"	"Organic soil A,Diseased,leaves (phyllosphere) - Organic soil A,Healthy,soil (rhizosphere)"	-25	6.13505410643532	36	-4.07494368693121	0.0111382961952465
+"8"	"Organic soil A,Diseased,leaves (phyllosphere) - Organic soil B,Diseased,soil (rhizosphere)"	-34.25	6.13505410643532	36	-5.58267285109576	0.00014210094268019
+"11"	"Organic soil A,Diseased,leaves (phyllosphere) - Organic soil B,Healthy,soil (rhizosphere)"	-30.5	6.13505410643532	36	-4.97143129805607	0.000875919331756791
+"18"	"Organic soil A,Diseased,roots (endosphere) - Organic soil B,Diseased,soil (rhizosphere)"	-25	6.13505410643532	36	-4.07494368693121	0.011138296195247
+"25"	"Organic soil A,Diseased,soil (rhizosphere) - Organic soil B,Diseased,leaves (phyllosphere)"	23	6.13505410643532	36	3.74894819197671	0.026275759598687
+"35"	"Organic soil A,Healthy,leaves (phyllosphere) - Organic soil B,Diseased,soil (rhizosphere)"	-24.75	6.13505410643532	36	-4.0341942500619	0.0124305847504059
+"39"	"Organic soil A,Healthy,roots (endosphere) - Organic soil A,Healthy,soil (rhizosphere)"	-22.5	6.13505410643532	36	-3.66744931823809	0.0323094160325561
+"42"	"Organic soil A,Healthy,roots (endosphere) - Organic soil B,Diseased,soil (rhizosphere)"	-31.75	6.13505410643532	36	-5.17517848240263	0.000479961557166231
+"45"	"Organic soil A,Healthy,roots (endosphere) - Organic soil B,Healthy,soil (rhizosphere)"	-28	6.13505410643532	36	-4.56393692936295	0.00285474933541396
+"46"	"Organic soil A,Healthy,soil (rhizosphere) - Organic soil B,Diseased,leaves (phyllosphere)"	24.5	6.13505410643532	36	3.99344481319259	0.0138636014072899
+"53"	"Organic soil B,Diseased,leaves (phyllosphere) - Organic soil B,Diseased,soil (rhizosphere)"	-33.75	6.13505410643532	36	-5.50117397735713	0.000181471890808749
+"56"	"Organic soil B,Diseased,leaves (phyllosphere) - Organic soil B,Healthy,soil (rhizosphere)"	-30	6.13505410643532	36	-4.88993242431745	0.00111223948000372
+"57"	"Organic soil B,Diseased,roots (endosphere) - Organic soil B,Diseased,soil (rhizosphere)"	-26	6.13505410643532	36	-4.23794143440846	0.007135677873776
+"60"	"Organic soil B,Diseased,roots (endosphere) - Organic soil B,Healthy,soil (rhizosphere)"	-22.25	6.13505410643532	36	-3.62669988136877	0.035780117152691
+"62"	"Organic soil B,Diseased,soil (rhizosphere) - Organic soil B,Healthy,roots (endosphere)"	30.25	6.13505410643532	36	4.93068186118676	0.000987169380606945
+"66"	"Organic soil B,Healthy,roots (endosphere) - Organic soil B,Healthy,soil (rhizosphere)"	-26.5	6.13505410643532	36	-4.31944030814708	0.00569187285733019
