@@ -23,13 +23,13 @@ library(ggplot2)
 
 Load clean datasets
 ```{r}
-metadata <- read.table("~/Philemon_ITS/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") %>%
+metadata <- read.table("~/Metadata_Philemon_ITS3.txt", header=T, sep="\t", dec=".") %>%
   select(ID, Compartment, Soil.origin, CompSoil, CompSoilDis) 
 
 View(metadata)
 
 #rarefied dataset (according to Schloss 2024)
-ASV_counts <- read.table("~/Philemon_ITS/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE)#this file was cleaned for mitos, chloros and all taxa which are not fungi, also it is a rarefied dataset
+ASV_counts <- read.table("~/ASV_ITS_Rarefied_Table_1000_times_clean_ASVnumbers.txt", header=T, sep="\t", dec=".", fill=FALSE)#this file was cleaned for mitos, chloros and all taxa which are not fungi, also it is a rarefied dataset
 dim(ASV_counts)
 View(ASV_counts)
 
@@ -43,7 +43,7 @@ View(ASV_counts)
     View(ASV_counts)
     
     
-tax_ASV <- read.table("~/Philemon_ITS/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", header=TRUE, sep="\t") 
+tax_ASV <- read.table("~/tables_for_analysis/Megablast_Philemon_dada2_Unite_taxonomy_CLEAN.txt", header=TRUE, sep="\t") 
 #rename column
     colnames(tax_ASV)[which(names(tax_ASV) == "ASVid")] <- "ASV"
 
