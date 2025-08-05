@@ -1,0 +1,216 @@
+---
+title: "Statistics Fungi_Ad-planta_trials"
+author: "Philemon"
+date: "2024-06-24"
+output: html_document
+---
+```{r}
+#Load libraries
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+library(moments)
+library(rstatix)
+library(broom)
+library(psych)
+library(FSA)
+install.packages("gfortran") 
+install.packages("DescTools") 
+install.packages('DescTools', dependencies = TRUE)
+install.packages("rcompanion")
+library(rcompanion)
+
+#Read data
+Rep1_withzeros <- read_excel("~/Ad_Planta_Trials/Raw_data/Rep_one.xlsx")
+View (Rep1_withzeros)
+#rename columns
+library(dplyr)
+Rep1_withzeros$Treatment <- dplyr::recode(Rep1_withzeros$Treatment,
+   "Ps"="Pseudogymnoascus sp._Pf23",
+    "Ch" = "Chaetomium sp._Pf101", 
+    "Cr" = "Chlonostachys sp._Pf27",
+    "Cu" = "Copper standard",
+    "Cv" = "Ctenomyces sp._Pf45",
+    "Pc" = "Positive control",
+    "Nc" = "Negative control",
+    "Ts" = "Trichoderma sp._Pf131")
+View (Rep1_withzeros)
+
+#reorder
+Rep1_withzeros$Treatment <- factor(
+  Rep1_withzeros$Treatment,
+  levels = c(
+    "Positive control",
+    "Negative control",
+    "Copper standard",
+    "Chaetomium sp._Pf101",
+    "Chlonostachys sp._Pf27",
+    "Ctenomyces sp._Pf45",
+    "Pseudogymnoascus sp._Pf23",
+    "Trichoderma sp._Pf131"
+  )
+)
+
+
+#Column `Infected area [%]` is not numeric -> convert
+Rep1_withzeros$`Diseased leaf area (%)` <- as.numeric(Rep1_withzeros$`Diseased leaf area (%)`)
+
+colnames(Rep1_withzeros)
+
+#List rows with Diseased leaf area of 0
+Rep1_withzeros[Rep1_withzeros$`Diseased leaf area (%)` == "0", ]
+#remove them
+Rep1<- Rep1_withzeros[Rep1_withzeros$`Diseased leaf area (%)` != 0, ]
+```
+```{r}
+#Compute summary statistics:
+#1. calculate the mean for each individual plant
+#2. Calculate the parameters by groups - mean, sd, var, count: 
+Rep1_mean <- Rep1 %>%
+  group_by(`Treatment`, Plant) %>% summarize_at("Diseased leaf area (%)", mean)
+  
+View(Rep1_mean)
+#Generating new data frame for boxplot iwth negative control
+Rep1_withzeros_mean <- Rep1_withzeros %>%
+  group_by(`Treatment`, Plant) %>% summarize_at("Diseased leaf area (%)", mean)
+
+```
+```{r}
+Rep1_mean %>%
+  group_by(Treatment) %>%
+  summarise(mean=mean(`Diseased leaf area (%)`, na.rm = TRUE),
+            median=median(`Diseased leaf area (%)`, na.rm = TRUE),
+            min=min(`Diseased leaf area (%)`, na.rm = TRUE),
+            max=max(`Diseased leaf area (%)`, na.rm = TRUE),
+            sd=sd(`Diseased leaf area (%)`, na.rm = TRUE),
+            var=var(`Diseased leaf area (%)`, na.rm = TRUE),
+            se=se(`Diseased leaf area (%)`, na.rm = TRUE),
+           Plant =n())
+```
+
+
+```{r}
+#Testing for normal distribution
+#1. Visualize the data to understand the distribution
+## Via a histogram
+#Via a Quantile-quantile plot (or QQPlot)
+##used to check whether a given data follows normal distribution.
+#The data is assumed to be normally distributed when the points approximately follow the 45-degree reference line.
+
+ggplot(Rep1_mean, aes(sample = `Diseased leaf area (%)`)) +
+  geom_qq(distribution = qunif) +
+  geom_qq_line(distribution = qunif) +
+  labs(title = "QQ Plots") +
+  facet_grid(~Treatment,scales='free')
+
+```
+```{r}
+##Normality test: shapiro.test()
+## H0 = normal distributed
+### The normality test should be applied within groups not between groups.
+#Multiple sharpiro test
+
+Rep1_mean %>%
+  group_by(Treatment) %>% 
+  do(tidy(shapiro.test(.$`Diseased leaf area (%)`)))
+
+```
+```{r}
+#All normal distributed 
+#--> ANNOVA
+#Diseased leaf area (%)
+#this test only checks for overall significant differences
+
+colnames(Rep1_mean)[3] <- 'Diseased_leaf_area'
+
+
+two_way_anova_Rep1 <- aov(Diseased_leaf_area ~ Treatment, data = Rep1_mean)
+summary(two_way_anova_Rep1)
+
+
+# Perform Tukey test Area of infection
+#this test checks for which treatments are significantly different from each other
+tukey_results_Rep1 <- TukeyHSD(two_way_anova_Rep1)
+
+plot(tukey_results_Rep1, las = 1)
+
+```
+```{r}
+install.packages("multcompView")
+library(multcompView)
+# Compute compact letter display
+cld <- multcompLetters4(two_way_anova_Rep1, tukey_results_Rep1)
+```
+```{r}
+
+# extracting the compact letter display and adding to the Tk table
+Treatment <- c("Positive_control", "Trichoderma_sp_Pf131", "Pseudogymnoascus_sp_Pf23", "Chlonostachys_sp_Pf27", "Ctenomyces_sp_Pf45", "Chaetomium_sp_Pf101", "Copper_standard")
+cld
+#cld <- c("a", "ab", "abc", "bc", "bcd", "cd", "d")
+df <- data.frame(Treatment, cld)
+merge(x = Rep1_withzeros_mean, y = df, by = "Treatment", all.y = TRUE)
+
+#boxplots
+
+
+library(ggplot2)
+library(dplyr)
+
+
+# Define custom colors for specific treatments
+custom_colors <- c("Copper standard" = "blue", 
+                   "Positive control" = "red",
+                   "Negative control" = "green")
+
+
+
+
+# Apply expression labels for italic species only
+treatment_labels <- c(
+  "Positive control",
+  "Negative control",
+  "Copper standard",
+  expression(italic("Chaetomium")*" sp._Pf101"),
+  expression(italic("Chlonostachys")*" sp._Pf27"),
+  expression(italic("Ctenomyces")*" sp._Pf45"),
+  expression(italic("Pseudogymnoascus")*" sp._Pf23"),
+  expression(italic("Trichoderma")*" sp._Pf131")
+)
+
+# Plot
+FungivsPinfestans_Rep1 <- ggplot(Rep1_withzeros_mean, aes(x = Treatment, y = `Diseased leaf area (%)`, fill = Treatment)) +
+  geom_boxplot(color = "black") +
+  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf),
+            color = "black", fill = NA) +
+  scale_fill_manual(values = custom_colors, guide = "none") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 10), expand = c(0, 0)) +
+  scale_x_discrete(labels = treatment_labels) +
+  labs(x = "Treatments", y = "Diseased leaf area (%)") +
+  theme_bw(base_size = 12, base_family = "Arial Black") +
+  theme(
+    axis.title.x = element_text(size = 12, face = "bold", color = "black"),
+    axis.title.y = element_text(size = 12, face = "bold", color = "black"),
+    axis.text.x = element_text(size = 12, angle = 90, hjust = 1, color = "black"),
+    axis.text.y = element_text(size = 10, color = "black"),
+    panel.border = element_rect(color = "black", fill = NA)
+  )
+
+# Save plot as TIFF
+ggsave(
+  filename = "Fungi_Rep1.tiff",
+  plot = FungivsPinfestans_Rep1,
+  path = "~/Ad_Planta_Trials/Outputfiles/Plots",
+  width = 7.5, height = 8.5, dpi = 300, units = "in",
+  device = "tiff", compression = "lzw"
+)
+
+
+```
+
+
+
+
+
+
+
